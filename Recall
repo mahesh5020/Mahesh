@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Flash Recall</title>
+  
+  <!-- iOS Fullscreen & App Icon Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FlashRecall">
+  <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/192/brain.png">
+
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; padding: 20px 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      background: #0f172a; color: #f8fafc;
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    }
+    .container { width: 100%; max-width: 520px; }
+    h1 { font-size: 22px; text-align: center; margin: 8px 0 20px 0; color: #38bdf8; font-weight: 700; }
+    .panel {
+      background: #1e293b; border-radius: 16px; padding: 14px;
+      margin-bottom: 16px; border: 1px solid #334155;
+    }
+    .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .row:last-child { margin-bottom: 0; }
+    label { font-size: 13px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    select, input[type="range"] {
+      background: #0f172a; color: #f8fafc; border: 1px solid #475569;
+      border-radius: 8px; padding: 6px 10px; font-size: 14px; outline: none;
+    }
+    .flash-box {
+      min-height: 140px; background: #1e293b; border: 2px dashed #475569;
+      border-radius: 18px; display: flex; align-items: center; justify-content: center;
+      padding: 18px; text-align: center; font-size: 20px; font-weight: 600; line-height: 1.4;
+      margin-bottom: 16px; transition: all 0.2s ease;
+    }
+    .flash-box.active { border-color: #38bdf8; background: #0b1329; color: #fff; box-shadow: 0 0 24px rgba(56,189,248,0.25); }
+    .progress-bar-bg { width: 100%; height: 6px; background: #334155; border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
+    .progress-bar { height: 100%; width: 100%; background: #38bdf8; transition: width linear; }
+    textarea {
+      width: 100%; height: 95px; background: #1e293b; border: 1px solid #475569;
+      border-radius: 14px; padding: 12px; color: #f8fafc; font-size: 16px;
+      resize: none; outline: none; margin-bottom: 14px;
+    }
+    textarea:focus { border-color: #38bdf8; }
+    button {
+      width: 100%; padding: 14px; border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.15s;
+    }
+    .btn-primary { background: #0284c7; color: #fff; margin-bottom: 10px; }
+    .btn-primary:active { background: #0369a1; transform: scale(0.98); }
+    .btn-next { background: #334155; color: #cbd5e1; }
+    .feedback {
+      background: #1e293b; border-radius: 14px; padding: 14px; margin-top: 14px;
+      font-size: 14px; border: 1px solid #334155; line-height: 1.6;
+    }
+    .correct { color: #4ade80; font-weight: 600; }
+    .wrong { color: #f87171; text-decoration: line-through; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚡ Flash Memory Recall</h1>
+
+    <div class="panel">
+      <div class="row">
+        <label>Timer</label>
+        <select id="timerSelect">
+          <option value="1">1 second</option>
+          <option value="2">2 seconds</option>
+          <option value="3" selected>3 seconds</option>
+          <option value="4">4 seconds</option>
+          <option value="5">5 seconds</option>
+          <option value="6">6 seconds</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Difficulty</label>
+        <select id="diffSelect">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+          <option value="impossible">Impossible</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Word Count: <span id="wordCountLabel" style="color:#38bdf8;">8</span></label>
+        <input type="range" id="wordRange" min="4" max="20" value="8">
+      </div>
+    </div>
+
+    <div class="flash-box" id="flashDisplay">🔒 Tap "Start Flash" to begin</div>
+    <div class="progress-bar-bg"><div class="progress-bar" id="pBar"></div></div>
+
+    <textarea id="recallInput" placeholder="Sentence will hide, then type here..." disabled></textarea>
+
+    <button id="mainBtn" class="btn-primary" onclick="handleMainAction()">Start Flash</button>
+    <button id="nextBtn" class="btn-next" onclick="prepareNext()" style="display:none;">Next Sentence</button>
+
+    <div class="feedback" id="feedbackBox" style="display:none;"></div>
+  </div>
+
+  <script>
+    // Linguistic semantic banks for Easy, Medium, Hard, and Impossible
+    const bank = {
+      easy: [
+        "Dogs bark at strangers.", "Cats sleep in warm sun.", "Birds fly high above.", "Rain falls on green grass.",
+        "She baked sweet cookies.", "He plays music every day.", "We walked to the park.", "The small boat sailed away.",
+        "Bright stars lit the sky.", "They bought fresh apples.", "A gentle wind moved branches.", "Children laughed on the lawn.",
+        "The red car stopped quickly.", "He drank cold water fast.", "She found a silver coin."
+      ],
+      medium: [
+        "Morning coffee gives fresh energy.", "Careful planning prevents sudden errors.", "Healthy habits promote clear focus.",
+        "The team celebrated their big victory.", "Autumn leaves covered the wet path.", "He read three chapters before sleeping.",
+        "Sunlight filtered through the dense forest.", "The engineer completed the detailed drawing.", "She practiced guitar for thirty minutes."
+      ],
+      hard: [
+        "Rigorous quality inspections guarantee mechanical integrity.", "Continuous vibration accelerates fatigue across industrial bearings.",
+        "Automated assembly robotics increase precision manufacturing output.", "Implementing redundant safeguards prevents severe electrical damage.",
+        "High pressure hydraulic circuits require reinforced steel tubing."
+      ],
+      impossible: [
+        "Nonlinear thermodynamic oscillations precipitate spontaneous symmetry breaking.",
+        "Topological quantum states exhibit remarkable fault tolerant properties.",
+        "Relativistic spacetime curvature governs galactic gravitational mechanics.",
+        "Superconducting interferometers measure extremely minute magnetic fluctuations."
+      ]
+    };
+
+    let targetSentence = "";
+    let state = "idle"; // idle, flashing, recall, scored
+    let timerRef = null;
+
+    const flashDisplay = document.getElementById("flashDisplay");
+    const pBar = document.getElementById("pBar");
+    const recallInput = document.getElementById("recallInput");
+    const mainBtn = document.getElementById("mainBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const feedbackBox = document.getElementById("feedbackBox");
+    const wordRange = document.getElementById("wordRange");
+    const wordCountLabel = document.getElementById("wordCountLabel");
+
+    wordRange.oninput = () => { wordCountLabel.textContent = wordRange.value; };
+
+    function generateSentence(diff, targetLen) {
+      const list = bank[diff] || bank.medium;
+      let match = list.find(s => s.trim().split(/\s+/).length === targetLen);
+      if (!match) {
+        // Synthesize grammatical sentence matching exact length
+        const filler = ["and", "with", "every", "single", "day", "under", "clear", "morning", "skies", "now"];
+        let base = list[Math.floor(Math.random() * list.length)].replace(/[.,]/g, '').split(/\s+/);
+        while (base.length < targetLen) base.push(filler[base.length % filler.length]);
+        base = base.slice(0, targetLen);
+        match = base.join(" ") + ".";
+      }
+      return match;
+    }
+
+    function handleMainAction() {
+      if (state === "idle") {
+        startFlash();
+      } else if (state === "recall") {
+        evaluate();
+      }
+    }
+
+    function startFlash() {
+      const diff = document.getElementById("diffSelect").value;
+      const len = parseInt(wordRange.value);
+      const duration = parseFloat(document.getElementById("timerSelect").value);
+
+      targetSentence = generateSentence(diff, len);
+      state = "flashing";
+      
+      flashDisplay.textContent = targetSentence;
+      flashDisplay.classList.add("active");
+      recallInput.value = "";
+      recallInput.disabled = true;
+      feedbackBox.style.display = "none";
+      nextBtn.style.display = "none";
+      mainBtn.disabled = true;
+      mainBtn.textContent = "Memorize...";
+
+      pBar.style.transition = `width ${duration}s linear`;
+      pBar.style.width = "0%";
+
+      timerRef = setTimeout(() => {
+        // Flash done -> switch to recall
+        state = "recall";
+        flashDisplay.textContent = "🔒 Hidden — Type what you remember!";
+        flashDisplay.classList.remove("active");
+        recallInput.disabled = false;
+        recallInput.focus();
+        mainBtn.disabled = false;
+        mainBtn.textContent = "Check Accuracy";
+        pBar.style.transition = "none";
+        pBar.style.width = "100%";
+      }, duration * 1000);
+    }
+
+    function evaluate() {
+      state = "scored";
+      const userText = recallInput.value.trim();
+      const targetWords = targetSentence.trim().replace(/[.,]/g, '').split(/\s+/);
+      const userWords = userText.replace(/[.,]/g, '').split(/\s+/);
+
+      let correctCount = 0;
+      const displayParts = targetWords.map((w, idx) => {
+        if (userWords[idx] && userWords[idx].toLowerCase() === w.toLowerCase()) {
+          correctCount++;
+          return `<span class="correct">${w}</span>`;
+        } else {
+          return `<span class="wrong">${w}</span>`;
+        }
+      });
+
+      const pct = Math.round((correctCount / targetWords.length) * 100);
+      feedbackBox.innerHTML = `
+        <strong>Score: ${pct}% Match</strong> (${correctCount}/${targetWords.length} words correct)<br>
+        <div style="margin-top:8px;"><strong>Breakdown:</strong> ${displayParts.join(" ")}</div>
+        <div style="margin-top:6px; color:#94a3b8;"><strong>Original:</strong> "${targetSentence}"</div>
+      `;
+      feedbackBox.style.display = "block";
+      mainBtn.style.display = "none";
+      nextBtn.style.display = "block";
+    }
+
+    function prepareNext() {
+      state = "idle";
+      flashDisplay.textContent = "🔒 Tap \"Start Flash\" to begin";
+      recallInput.value = "";
+      recallInput.disabled = true;
+      feedbackBox.style.display = "none";
+      nextBtn.style.display = "none";
+      mainBtn.style.display = "block";
+      mainBtn.textContent = "Start Flash";
+      pBar.style.width = "100%";
+    }
+  </script>
+</body>
+</html>
